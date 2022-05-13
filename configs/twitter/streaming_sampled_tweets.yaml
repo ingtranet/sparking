@@ -1,0 +1,59 @@
+spark:
+  appName: streaming_sampled_tweets
+  config:
+    spark.rdd.compress: "true"
+    spark.task.maxFailures: "999"
+    spark.driver.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact
+    spark.executor.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact
+    spark.eventLog.gcMetrics.youngGenerationGarbageCollectors: Shenandoah Cycles, Shenandoah Pauses
+    spark.streaming.backpressure.enabled: "true"
+    spark.streaming.backpressure.initialRate: "100"
+    spark.streaming.receiver.maxRate: "300"
+    spark.streaming.kafka.maxRatePerPartition: "300"
+    spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+    spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+    spark.sql.catalog.iceberg.type: hive
+    spark.sql.catalog.iceberg.uri: thrift://hive-metastore.mdc.ingtra.net:9083
+    spark.sql.catalog.iceberg.warehouse: s3a://iceberg/
+    spark.sql.catalog.iceberg.hive.metastore.warehouse.dir: s3a://iceberg/
+    spark.hadoop.fs.s3a.endpoint: http://minio.mdc.ingtra.net
+    spark.hadoop.fs.s3a.access.key: spark
+    spark.hadoop.fs.s3a.secret.key: sparkuser
+    spark.kubernetes.memoryOverheadFactor: "0.3"
+    spark.kubernetes.executor.podTemplateFile: http://minio.mdc.ingtra.net/bins/spark/executor_pod_template.yaml
+    spark.sql.shuffle.partitions: "96"
+    spark.locality.wait: 0s
+
+input:
+  type: KafkaStreaming
+  config:
+    topics:
+      - data.twitter.sampled-stream.1
+    kafkaParams:
+      bootstrap.servers: redpanda.mdc.ingtra.net:9092
+      group.id: sparking-load-sampled-tweets-to-iceberg-1
+      auto.offset.reset: earliest
+    batchDuration: 60
+
+processors:
+  - type: Repartition
+    config:
+      number: 96
+  - type: ExprAsJson
+    config:
+      expr: CAST(value as STRING)
+      schemaFromTable: iceberg.twitter.sampled_stream
+  - type: Sql
+    config:
+      sql: |
+        SELECT data.id AS id, to_timestamp(data.created_at) AS created_at_ts, data, includes
+        FROM this
+
+outputs:
+  - type: IcebergAppendDeduplicated
+    config:
+      table: iceberg.twitter.sampled_stream
+      keys:
+        - id
+      partitions:
+        - created_at_ts

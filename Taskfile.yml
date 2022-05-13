@@ -1,0 +1,17 @@
+version: '3'
+
+tasks:
+  build:
+    cmds:
+      - sbt assembly
+
+  run:
+    cmds:
+      - sbt "run file://$PWD/configs/{{.CLI_ARGS}}"
+
+  deploy:
+    deps:
+      - build
+    cmds:
+      - find ./configs -type f -name "*.yaml" -exec curl -XPUT --data-binary @{} http://minio.mdc.ingtra.net/bins/sparking/{} \;
+      - cd target/scala-2.12 && find . -type f -name "*.jar" -exec curl -XPUT --data-binary @{} http://minio.mdc.ingtra.net/bins/sparking/jars/{} \;

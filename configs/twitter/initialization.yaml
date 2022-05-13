@@ -1,0 +1,66 @@
+spark:
+  appName: initialization
+  master: local[*]
+  config:
+    spark.streaming.backpressure.enabled: "true"
+    spark.streaming.backpressure.initialRate: "100"
+    spark.streaming.receiver.maxRate: "100"
+    spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+    spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+    spark.sql.catalog.iceberg.type: hive
+    spark.sql.catalog.iceberg.uri: thrift://hive-metastore.mdc.ingtra.net:9083
+    spark.sql.catalog.iceberg.warehouse: s3a://iceberg/
+    spark.sql.catalog.iceberg.hive.metastore.warehouse.dir: s3a://iceberg/
+    spark.hadoop.fs.s3a.endpoint: http://minio.mdc.ingtra.net
+    spark.hadoop.fs.s3a.access.key: spark
+    spark.hadoop.fs.s3a.secret.key: sparkuser
+
+input:
+  type: KafkaBatch
+  config:
+    options:
+      kafka.bootstrap.servers: redpanda.mdc.ingtra.net:9092
+      subscribe: data.twitter.sampled-stream.1
+      startingOffsets: earliest
+
+processors:
+  - type: Sql
+    config:
+      sql: |
+        SELECT *
+        FROM this
+        LIMIT 1000000
+  - type: Repartition
+    config:
+      number: 200
+  - type: ExprAsJson
+    config:
+      expr: CAST(value as STRING)
+  - type: Sql
+    config:
+      sql: |
+        SELECT data.id AS id, to_timestamp(data.created_at) AS created_at_ts, data, includes
+        FROM this
+  - type: DropDuplicates
+    config:
+      columns:
+        - id
+
+
+outputs:
+  - type: Iceberg
+    config:
+      sql: |
+        CREATE OR REPLACE TABLE iceberg.twitter.sampled_stream
+        USING iceberg
+        PARTITIONED BY (hours(created_at_ts))
+        TBLPROPERTIES(
+          'write.format.default'='parquet',
+          'write.parquet.compression-codec'='zstd',
+          'history.expire.max-snapshot-age-ms'='86400000',
+          'format-version'='2'
+        )
+        AS 
+          SELECT *
+          FROM this
+          SORT BY created_at_ts
