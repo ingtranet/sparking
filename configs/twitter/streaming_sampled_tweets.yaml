@@ -3,13 +3,14 @@ spark:
   config:
     spark.rdd.compress: "true"
     spark.task.maxFailures: "999"
-    spark.driver.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact
-    spark.executor.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact
+    spark.driver.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
+    spark.executor.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
     spark.eventLog.gcMetrics.youngGenerationGarbageCollectors: Shenandoah Cycles, Shenandoah Pauses
     spark.streaming.backpressure.enabled: "true"
     spark.streaming.backpressure.initialRate: "100"
     spark.streaming.receiver.maxRate: "300"
     spark.streaming.kafka.maxRatePerPartition: "300"
+    spark.streaming.stopGracefullyOnShutdown: "true"
     spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
     spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
     spark.sql.catalog.iceberg.type: hive
@@ -19,9 +20,16 @@ spark:
     spark.hadoop.fs.s3a.endpoint: http://minio.mdc.ingtra.net
     spark.hadoop.fs.s3a.access.key: spark
     spark.hadoop.fs.s3a.secret.key: sparkuser
+    spark.hadoop.fs.s3a.connection.ssl.enabled: "false"
+    spark.hadoop.fs.s3a.fast.upload: "true"
+    spark.hadoop.fs.s3a.bucket.all.committer.magic.enabled: "true"
     spark.kubernetes.memoryOverheadFactor: "0.3"
     spark.kubernetes.executor.podTemplateFile: http://minio.mdc.ingtra.net/bins/spark/executor_pod_template.yaml
-    spark.sql.shuffle.partitions: "96"
+    spark.sql.shuffle.partitions: "32"
+    spark.shuffle.io.preferDirectBufs: "false"
+    spark.network.io.preferDirectBufs: "false"
+    spark.memory.fraction: "0.2"
+    spark.memory.storageFraction: "0.2"
     spark.locality.wait: 0s
 
 input:
@@ -30,7 +38,7 @@ input:
     topics:
       - data.twitter.sampled-stream.1
     kafkaParams:
-      bootstrap.servers: redpanda.mdc.ingtra.net:9092
+      bootstrap.servers: kafka.mdc.ingtra.net:9092
       group.id: sparking-load-sampled-tweets-to-iceberg-1
       auto.offset.reset: earliest
     batchDuration: 60
@@ -38,7 +46,7 @@ input:
 processors:
   - type: Repartition
     config:
-      number: 96
+      number: 32
   - type: ExprAsJson
     config:
       expr: CAST(value as STRING)
