@@ -14,7 +14,7 @@ resolvers ++= Seq(
 )
 
 val sparkVersion = "3.3.0"
-val icebergVersion = "0.14.0"
+val icebergVersion = "0.14.1"
 val circeVersion = "0.13.0"
 val scalaUriVersion = "4.0.1"
 val sttpVersion = "3.5.1"
