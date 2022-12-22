@@ -3,8 +3,8 @@ spark:
   config:
     spark.rdd.compress: "true"
     spark.task.maxFailures: "999"
-    spark.driver.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
-    spark.executor.extraJavaOptions: -XX:+UseShenandoahGC -XX:ShenandoahGCHeuristics=compact -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
+    spark.driver.extraJavaOptions: -XX:+UseShenandoahGC -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
+    spark.executor.extraJavaOptions: -XX:+UseShenandoahGC -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=0
     spark.eventLog.gcMetrics.youngGenerationGarbageCollectors: Shenandoah Cycles, Shenandoah Pauses
     spark.streaming.backpressure.enabled: "true"
     spark.streaming.backpressure.initialRate: "100"
