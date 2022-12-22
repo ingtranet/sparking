@@ -38,7 +38,7 @@ input:
       - data.twitter.sampled-stream.1
     kafkaParams:
       bootstrap.servers: kafka.mdc.ingtra.net:9092
-      group.id: sparking-load-sampled-tweets-to-iceberg-5
+      group.id: sparking-load-sampled-tweets-to-iceberg-6
       auto.offset.reset: earliest
     batchDuration: 60
 
